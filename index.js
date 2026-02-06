@@ -854,13 +854,14 @@ _Ubah hasil ternak jadi produk premium!_
         }
     });
 
-    // AUTO SAVE (5 Detik)
+    // AUTO SAVE (20 Detik)
     setInterval(() => {
         if (global.db) saveDB(global.db);
-    }, 5000); 
+    }, 20000); 
 }
 
 startBot();
+
 
 
 
