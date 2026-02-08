@@ -30,7 +30,7 @@ const CROPS = {
 };
 
 // ==========================================
-// 2. DATA MESIN & RESEP (SMART QUEUE)
+// 2. DATA MESIN & RESEP
 // ==========================================
 const MACHINES = {
     // TIER 1: Padi -> Beras Premium (Margin 140%)
@@ -293,7 +293,7 @@ module.exports = async (command, args, msg, user, db) => {
             }
             return msg.reply(txt);
         }
-        if (user.farm.plants.length >= 5) return msg.reply("❌ Ladang penuh!");
+        if (user.farm.plants.length >= 10) return msg.reply("❌ Ladang penuh!");
         if (user.balance < CROPS[cropName].modal) return msg.reply("❌ Uang kurang.");
 
         user.balance -= CROPS[cropName].modal;
