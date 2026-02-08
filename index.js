@@ -861,28 +861,26 @@ _Ubah hasil ternak jadi produk premium!_
 
 startBot();
 
+// ==========================================================
+//  PENANGANAN SHUTDOWN (Agar Data Tidak Hilang)
+// ==========================================================
 
+async function handleExit(signal) {
+    console.log(`🛑 Menerima sinyal ${signal}. Mematikan bot...`);
+    
+    // 1. Simpan Database Terakhir (PENTING)
+    if (global.db && typeof saveDB === 'function') {
+        console.log("💾 Menyimpan database sebelum keluar...");
+        await saveDB(global.db);
+    }
 
+    // 2. Tutup Koneksi Socket (Baileys) jika ada
+    // (Opsional, karena process.exit akan mematikan socket juga)
+    
+    console.log("✅ Shutdown selesai. Bye!");
+    process.exit(0);
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// Tangkap sinyal mematikan dari Koyeb/Terminal
+process.on('SIGINT', () => handleExit('SIGINT'));
+process.on('SIGTERM', () => handleExit('SIGTERM'));
