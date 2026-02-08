@@ -107,7 +107,7 @@ const saveDB = async (data) => {
             { upsert: true } 
         );
         
-        console.log("💾 Data saved to Cloud");
+       // console.log("💾 Data saved to Cloud");
 
     } catch (err) {
         console.error("⚠️ Gagal Save ke MongoDB:", err.message);
@@ -137,3 +137,4 @@ const addQuestProgress = (user, questId) => {
 };
 
 module.exports = { connectToCloud, loadDB, saveDB, addQuestProgress };
+
