@@ -343,7 +343,7 @@ async function startBot() {
     if (!user.crypto) user.crypto = {};
     if (!user.quest && typeof defaultQuest !== 'undefined') user.quest = JSON.parse(JSON.stringify(defaultQuest));
 
-    // --- CEK & PERBAIKI FITUR BARU (Agar user lama tidak error) ---
+    // --- CEK & PERBAIKI FITUR BARU---
     // 1. Valas & Emas
     if (!user.forex) user.forex = { usd: 0, eur: 0, jpy: 0, emas: 0 };
     
@@ -421,7 +421,7 @@ async function startBot() {
             
 
             // ==========================================================
-            //  FITUR STEGANOGRAFI (Path: commands/stegano.py)
+            //  FITUR STEGANOGRAFI
             // ==========================================================
             
             // COMMAND: !hide <pesan> (Reply/Kirim Gambar)
@@ -457,7 +457,6 @@ async function startBot() {
 
                     fs.writeFileSync(inputPath, buffer);
                     
-                    // PERBAIKAN: Menggunakan 'python3' bukan 'python'
                     const cmdPython = `python3 commands/stegano.py hide "${inputPath}" "${pesanRahasia}" "${outputPath}"`;
 
                     exec(cmdPython, async (error, stdout, stderr) => {
@@ -854,13 +853,14 @@ _Ubah hasil ternak jadi produk premium!_
         }
     });
 
-    // AUTO SAVE (20 Detik)
+    // AUTO SAVE (60 Detik)
     setInterval(() => {
         if (global.db) saveDB(global.db);
-    }, 20000); 
+    }, 60000); 
 }
 
 startBot();
+
 
 
 
