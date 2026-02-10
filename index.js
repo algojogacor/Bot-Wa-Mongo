@@ -164,22 +164,39 @@ async function startBot() {
     // 3. START BAILEYS BARU
     const { state, saveCreds } = await useMultiFileAuthState('auth_baileys');
 
-    const sock = makeWASocket({
-        version,
-        logger: pino({ level: 'silent' }),
-        printQRInTerminal: false, 
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
-        },
-        browser: ['Ubuntu', 'Chrome', '20.0.04'], 
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000,
-        retryRequestDelayMs: 2000, 
-        syncFullHistory: false,
-        generateHighQualityLinkPreview: true,
-    });
+   // Tambahkan cache di luar fungsi startBot agar data retry tersimpan
+const msgRetryCounterCache = new Map();
 
+const sock = makeWASocket({
+    version,
+    logger: pino({ level: 'silent' }),
+    printQRInTerminal: false, 
+    auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
+    },
+    browser: ['Ubuntu', 'Chrome', '20.0.04'], 
+    
+    // --- PENYEMPURNAAN UNTUK SPAM & STABILITAS ---
+    markOnlineOnConnect: true,         // Menjaga status online agar pesan lebih cepat terkirim
+    generateHighQualityLinkPreview: true,
+    msgRetryCounterCache,              // Menyimpan histori retry jika pesan gagal terkirim karena spam
+    defaultQueryTimeoutMs: 0,          // Menghindari timeout saat database sedang sibuk
+    syncFullHistory: false,
+    
+    // Antrean pengiriman (Penting agar tidak dianggap flood oleh server WA)
+    transactionOpts: { 
+        maxRetries: 5, 
+        delayBetweenTriesMs: 400 
+    },
+
+    // Pengaturan timeout dan koneksi
+    connectTimeoutMs: 60000,
+    keepAliveIntervalMs: 15000,        // Sedikit diperpanjang untuk stabilitas socket
+    
+    // Mengabaikan pesan broadcast/status agar bot fokus ke chat grup
+    shouldIgnoreJid: jid => jid?.endsWith('@broadcast'),
+});
     // --- EVENT KONEKSI ---
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -551,31 +568,30 @@ async function startBot() {
             // 2. MODUL PREFIX (!)
             if (!isCommand) return;
             
-           
+            ternakCmd(command, args, msg, user, db).catch(e => console.error("Error Ternak:", e.message));
             await toolsCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Tools:", e.message));
             await timeMachineCmd(command, args, msg, user, db, sock);
-            await devCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Dev:", e.message));
-            await pabrikCommand(command, args, msg, user, db, sock).catch(e => console.error("Error Pabrik:", e.message));
-            await economyCmd(command, args, msg, user, db).catch(e => console.error("Error Economy:", e.message));
+            devCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Dev:", e.message));
+            pabrikCommand(command, args, msg, user, db, sock).catch(e => console.error("Error Pabrik:", e.message));
+            economyCmd(command, args, msg, user, db).catch(e => console.error("Error Economy:", e.message));
             await chartCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Chart:", e.message));
             await stocksCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Stocks:", e.message));
             await cryptoCmd(command, args, msg, user, db).catch(e => console.error("Error Crypto:", e.message));
-            await propertyCmd(command, args, msg, user, db).catch(e => console.error("Error Property:", e.message));
+            propertyCmd(command, args, msg, user, db).catch(e => console.error("Error Property:", e.message));
             await minesCmd(command, args, msg, user, db).catch(e => console.error("Error Mines:", e.message));
-            await miningCmd(command, args, msg, user, db).catch(e => console.error("Error Mining:", e.message));
+            miningCmd(command, args, msg, user, db).catch(e => console.error("Error Mining:", e.message));
             await duelCmd(command, args, msg, user, db).catch(e => console.error("Error Duel:", e.message));
             await bolaCmd(command, args, msg, user, db, sender).catch(e => console.error("Error Bola:", e.message));
             await nationCmd(command, args, msg, user, db).catch(e => console.error("Error Nation:", e.message));
             await robCmd(command, args, msg, user, db).catch(e => console.error("Error Rob:", e.message));
             await valasCmd(command, args, msg, user, db).catch(e => console.error("Error Valas:", e.message));
             await farmingCmd(command, args, msg, user, db).catch(e => console.error("Error Farming:", e.message));
-            await ternakCmd(command, args, msg, user, db).catch(e => console.error("Error Ternak:", e.message));
             await jobsCmd(command, args, msg, user, db).catch(e => console.error("Error Jobs:", e.message));
             await rouletteCmd(command, args, msg, user, db).catch(e => console.error("Error Roulette:", e.message));
             await battleCmd(command, args, msg, user, db).catch(e => console.error("Error Battle:", e.message));
             await ttsCmd(command, args, msg).catch(e => console.error("Error TTS:", e.message));
             await wikiKnowCmd(command, args, msg).catch(e => console.error("Error WikiKnow:", e.message));
-            await adminCmd(command, args, msg, user, db).catch(e => console.error("Error Admin:", e.message));
+            adminCmd(command, args, msg, user, db).catch(e => console.error("Error Admin:", e.message));
             await rpgCmd(command, args, msg, user, db).catch(e => console.error("Error RPG:", e.message));
             await slitherCmd(command, args, msg, user, db).catch(e => console.error("Error Slither:", e.message));
             await aiCmd(command, args, msg, user, db).catch(e => console.error("Error AI:", e.message));
@@ -583,7 +599,7 @@ async function startBot() {
             await imageCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Image:", e.message));
             
             if (typeof profileCmd !== 'undefined') {
-                 await profileCmd(command, args, msg, user, db, chat, sock).catch(e => console.error("Error Profile:", e.message));
+                 profileCmd(command, args, msg, user, db, chat, sock).catch(e => console.error("Error Profile:", e.message));
             }
 
             // ==========================================================
@@ -884,3 +900,4 @@ async function handleExit(signal) {
 // Tangkap sinyal mematikan dari Koyeb/Terminal
 process.on('SIGINT', () => handleExit('SIGINT'));
 process.on('SIGTERM', () => handleExit('SIGTERM'));
+
