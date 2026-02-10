@@ -568,18 +568,18 @@ const sock = makeWASocket({
             // 2. MODUL PREFIX (!)
             if (!isCommand) return;
             
-            ternakCmd(command, args, msg, user, db).catch(e => console.error("Error Ternak:", e.message));
+            await ternakCmd(command, args, msg, user, db).catch(e => console.error("Error Ternak:", e.message));
             await toolsCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Tools:", e.message));
             await timeMachineCmd(command, args, msg, user, db, sock);
-            devCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Dev:", e.message));
-            pabrikCommand(command, args, msg, user, db, sock).catch(e => console.error("Error Pabrik:", e.message));
-            economyCmd(command, args, msg, user, db).catch(e => console.error("Error Economy:", e.message));
+            await devCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Dev:", e.message));
+            await pabrikCommand(command, args, msg, user, db, sock).catch(e => console.error("Error Pabrik:", e.message));
+            await economyCmd(command, args, msg, user, db).catch(e => console.error("Error Economy:", e.message));
             await chartCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Chart:", e.message));
             await stocksCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Stocks:", e.message));
             await cryptoCmd(command, args, msg, user, db).catch(e => console.error("Error Crypto:", e.message));
-            propertyCmd(command, args, msg, user, db).catch(e => console.error("Error Property:", e.message));
+            await propertyCmd(command, args, msg, user, db).catch(e => console.error("Error Property:", e.message));
             await minesCmd(command, args, msg, user, db).catch(e => console.error("Error Mines:", e.message));
-            miningCmd(command, args, msg, user, db).catch(e => console.error("Error Mining:", e.message));
+            await miningCmd(command, args, msg, user, db).catch(e => console.error("Error Mining:", e.message));
             await duelCmd(command, args, msg, user, db).catch(e => console.error("Error Duel:", e.message));
             await bolaCmd(command, args, msg, user, db, sender).catch(e => console.error("Error Bola:", e.message));
             await nationCmd(command, args, msg, user, db).catch(e => console.error("Error Nation:", e.message));
@@ -591,7 +591,7 @@ const sock = makeWASocket({
             await battleCmd(command, args, msg, user, db).catch(e => console.error("Error Battle:", e.message));
             await ttsCmd(command, args, msg).catch(e => console.error("Error TTS:", e.message));
             await wikiKnowCmd(command, args, msg).catch(e => console.error("Error WikiKnow:", e.message));
-            adminCmd(command, args, msg, user, db).catch(e => console.error("Error Admin:", e.message));
+            await adminCmd(command, args, msg, user, db).catch(e => console.error("Error Admin:", e.message));
             await rpgCmd(command, args, msg, user, db).catch(e => console.error("Error RPG:", e.message));
             await slitherCmd(command, args, msg, user, db).catch(e => console.error("Error Slither:", e.message));
             await aiCmd(command, args, msg, user, db).catch(e => console.error("Error AI:", e.message));
@@ -599,7 +599,7 @@ const sock = makeWASocket({
             await imageCmd(command, args, msg, user, db, sock).catch(e => console.error("Error Image:", e.message));
             
             if (typeof profileCmd !== 'undefined') {
-                 profileCmd(command, args, msg, user, db, chat, sock).catch(e => console.error("Error Profile:", e.message));
+                 await profileCmd(command, args, msg, user, db, chat, sock).catch(e => console.error("Error Profile:", e.message));
             }
 
             // ==========================================================
@@ -900,4 +900,5 @@ async function handleExit(signal) {
 // Tangkap sinyal mematikan dari Koyeb/Terminal
 process.on('SIGINT', () => handleExit('SIGINT'));
 process.on('SIGTERM', () => handleExit('SIGTERM'));
+
 
