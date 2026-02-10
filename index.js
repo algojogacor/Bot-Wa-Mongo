@@ -10,7 +10,6 @@ const {
 
 const pino = require('pino');
 const fs = require('fs');
-const { exec } = require('child_process');
 const { connectToDB } = require('./helpers/mongodb');
 const { MongoClient } = require('mongodb');
 const ffmpeg = require('ffmpeg-static');
@@ -139,6 +138,9 @@ app.post('/api/catur-finish', async (req, res) => {
 app.get('/', (req, res) => res.send('<h1>Bot Arya is Running! 🚀</h1>'));
 app.listen(port, () => console.log(`Server jalan di port ${port}`));
 
+   // --- DI LUAR FUNGSI startBot() ---
+const msgRetryCounterCache = new Map();
+
 // ---KONEKSI BAILEYS ---
 async function startBot() {
     
@@ -164,38 +166,47 @@ async function startBot() {
     // 3. START BAILEYS BARU
     const { state, saveCreds } = await useMultiFileAuthState('auth_baileys');
 
-   // Tambahkan cache di luar fungsi startBot agar data retry tersimpan
-const msgRetryCounterCache = new Map();
-
+// --- DI DALAM FUNGSI startBot() ---
 const sock = makeWASocket({
     version,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: false, 
+    printQRInTerminal: false,
     auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
     },
+    // Ganti Browser ke yang lebih umum agar tidak dicurigai WA
     browser: ['Ubuntu', 'Chrome', '20.0.04'], 
+
+    // --- PENGATURAN VITAL UNTUK STABILITAS ---
+    markOnlineOnConnect: true,
+    generateHighQualityLinkPreview: false, // ⚠️ WAJIB FALSE: Ini memakan banyak RAM/CPU saat kirim link
+    syncFullHistory: false, // Wajib False agar tidak menyedot kuota/RAM saat login
+    retryRequestDelayMs: 250, // Waktu tunggu sebelum mencoba request ulang (Internal Baileys)
     
-    // --- PENYEMPURNAAN UNTUK SPAM & STABILITAS ---
-    markOnlineOnConnect: true,         // Menjaga status online agar pesan lebih cepat terkirim
-    generateHighQualityLinkPreview: true,
-    msgRetryCounterCache,              // Menyimpan histori retry jika pesan gagal terkirim karena spam
-    defaultQueryTimeoutMs: 0,          // Menghindari timeout saat database sedang sibuk
-    syncFullHistory: false,
-    
-    // Antrean pengiriman (Penting agar tidak dianggap flood oleh server WA)
+    // Cache Retry
+    msgRetryCounterCache, 
+
+    // Transaksi Pengiriman Pesan
     transactionOpts: { 
-        maxRetries: 5, 
-        delayBetweenTriesMs: 400 
+        maxRetries: 3, 
+        delayBetweenTriesMs: 1000 
     },
 
-    // Pengaturan timeout dan koneksi
-    connectTimeoutMs: 60000,
-    keepAliveIntervalMs: 15000,        // Sedikit diperpanjang untuk stabilitas socket
-    
-    // Mengabaikan pesan broadcast/status agar bot fokus ke chat grup
-    shouldIgnoreJid: jid => jid?.endsWith('@broadcast'),
+    // Koneksi & Timeout (Settingan Santai)
+    defaultQueryTimeoutMs: undefined, // Biarkan default (jangan 0/infinity, nanti bot hang kalau DB macet)
+    keepAliveIntervalMs: 30000, // Perpanjang jadi 30 detik (Default 15s terlalu cepat buat CPU kecil)
+    connectTimeoutMs: 60000, 
+
+    // Fungsi ini mencegah bot Crash saat menerima pesan yang gagal didekripsi (Waiting for message)
+    getMessage: async (key) => {
+        if (global.db.store) {
+            const msg = await global.db.store.loadMessage(key.remoteJid, key.id);
+            return msg?.message || undefined;
+        }
+        // Return object kosong agar tidak error
+        return { conversation: 'Hello, I am alive' };
+    },
 });
     // --- EVENT KONEKSI ---
     sock.ev.on('connection.update', (update) => {
@@ -435,121 +446,6 @@ const sock = makeWASocket({
             const isCommand = body.startsWith('!');
             const args = isCommand ? body.slice(1).trim().split(/ +/) : [];
             const command = isCommand ? args.shift().toLowerCase() : "";
-            
-
-            // ==========================================================
-            //  FITUR STEGANOGRAFI
-            // ==========================================================
-            
-            // COMMAND: !hide <pesan> (Reply/Kirim Gambar)
-            if (command === 'hide') {
-                const isImage = (msgType === 'imageMessage');
-                const isQuotedImage = m.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
-
-                if (!isImage && !isQuotedImage) return msg.reply("⚠️ Kirim/Reply gambar dengan caption: !hide pesan rahasia");
-                
-                const pesanRahasia = args.join(" ");
-                if (!pesanRahasia) return msg.reply("⚠️ Mana pesannya? Contoh: !hide Misi Rahasia 007");
-
-                msg.reply("⏳ Sedang menyembunyikan pesan...");
-
-                try {
-                    let messageToDownload = m;
-                    if (isQuotedImage) {
-                        messageToDownload = {
-                            key: m.message.extendedTextMessage.contextInfo.stanzaId,
-                            message: m.message.extendedTextMessage.contextInfo.quotedMessage
-                        };
-                    }
-
-                    const buffer = await downloadMediaMessage(
-                        messageToDownload,
-                        'buffer',
-                        {},
-                        { logger: pino({ level: 'silent' }) }
-                    );
-
-                    const inputPath = `./temp_input_${sender.split('@')[0]}.jpg`;
-                    const outputPath = `./temp_output_${sender.split('@')[0]}.png`;
-
-                    fs.writeFileSync(inputPath, buffer);
-                    
-                    const cmdPython = `python3 commands/stegano.py hide "${inputPath}" "${pesanRahasia}" "${outputPath}"`;
-
-                    exec(cmdPython, async (error, stdout, stderr) => {
-                        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-
-                        if (error) {
-                            console.error("Stegano Error:", error);
-                            // Cek error spesifik jika python3 tidak ditemukan
-                            if (error.message.includes("not found")) {
-                                return msg.reply("❌ Error: Python3 tidak terinstall di server bot ini.");
-                            }
-                            return msg.reply("❌ Gagal. Pastikan gambar tidak rusak.");
-                        }
-
-                        await sock.sendMessage(remoteJid, { 
-                            document: fs.readFileSync(outputPath), 
-                            mimetype: 'image/png',
-                            fileName: 'RAHASIA.png',
-                            caption: '✅ SUKSES! Download file ini (Document) agar pesan aman.'
-                        }, { quoted: m });
-
-                        setTimeout(() => {
-                            if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                        }, 5000);
-                    });
-
-                } catch (err) {
-                    console.log(err);
-                    msg.reply("Gagal mendownload gambar.");
-                }
-            }
-
-            // COMMAND: !reveal (Reply Gambar/Dokumen)
-            if (command === 'reveal') {
-                const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
-                const isQuotedDoc = quotedMsg?.documentMessage;
-                const isQuotedImg = quotedMsg?.imageMessage;
-
-                if (!isQuotedDoc && !isQuotedImg) {
-                    return msg.reply("⚠️ Reply gambar/dokumen rahasia dengan !reveal");
-                }
-
-                msg.reply("🔍 Sedang membaca pesan...");
-
-                try {
-                    const messageToDownload = {
-                        key: m.message.extendedTextMessage.contextInfo.stanzaId,
-                        message: quotedMsg
-                    };
-
-                    const buffer = await downloadMediaMessage(
-                        messageToDownload,
-                        'buffer',
-                        {},
-                        { logger: pino({ level: 'silent' }) }
-                    );
-
-                    const inputPath = `./temp_reveal_${sender.split('@')[0]}.png`;
-                    fs.writeFileSync(inputPath, buffer);
-
-                    // PERBAIKAN: Menggunakan 'python3'
-                    const cmdPython = `python3 commands/stegano.py reveal "${inputPath}"`;
-
-                    exec(cmdPython, (error, stdout, stderr) => {
-                        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-
-                        if (error) return msg.reply("❌ Tidak ditemukan pesan rahasia di file ini (atau format salah).");
-                        
-                        msg.reply(stdout);
-                    });
-
-                } catch (e) {
-                    console.log(e);
-                    msg.reply("Gagal mengambil media.");
-                }
-            }
 
             // ==========================================================
             //  COMMAND HANDLER
@@ -900,5 +796,6 @@ async function handleExit(signal) {
 // Tangkap sinyal mematikan dari Koyeb/Terminal
 process.on('SIGINT', () => handleExit('SIGINT'));
 process.on('SIGTERM', () => handleExit('SIGTERM'));
+
 
 
