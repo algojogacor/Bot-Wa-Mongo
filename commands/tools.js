@@ -61,29 +61,39 @@ module.exports = async (command, args, msg, user, db, chat) => {
                         })
                         .on('end', () => resolve());
 
+                    // SETTING KHUSUS VIDEO/GIF (Mode Ringan)
                     if (isVid) {
                         commandFfmpeg.inputFormat('mp4');
-                        // Batasi durasi dan frame rate biar ga berat
-                        commandFfmpeg.duration(5); 
-                        commandFfmpeg.fps(15);
-                    } 
+                        
+                        // OPSI PALING RINGAN (Hapus Palettegen Total)
+                        // FPS 10, Durasi 5s, Scale 512
+                        commandFfmpeg.addOutputOptions([
+                            `-vcodec`, `libwebp`,
+                            `-vf`, `scale=512:512:force_original_aspect_ratio=decrease,fps=10`, 
+                            `-loop`, `0`,
+                            `-ss`, `00:00:00.0`,
+                            `-t`, `00:00:05.0`, // Potong max 5 detik
+                            `-preset`, `default`,
+                            `-an`,
+                            `-vsync`, `0`
+                        ]);
+                    } else {
+                        // SETTING KHUSUS GAMBAR (Tetap HD gapapa, karena ringan)
+                         commandFfmpeg.addOutputOptions([
+                            `-vcodec`, `libwebp`,
+                            `-vf`, `scale=512:512:force_original_aspect_ratio=decrease`,
+                            `-preset`, `default`,
+                            `-an`,
+                            `-vsync`, `0`
+                        ]);
+                    }
 
-                    // ✅ FIX 3: Perbaikan Filter Scale yang Error (Typo kutip)
-                    commandFfmpeg.addOutputOptions([
-                        `-vcodec`, `libwebp`,
-                        `-vf`, `scale='min(320,iw)':min'(320,ih)':force_original_aspect_ratio=decrease,fps=15, pad=320:320:-1:-1:color=white@0.0, split [a][b]; [a] palettegen=reserve_transparent=on:transparency_color=ffffff [p]; [b][p] paletteuse`,
-                        `-loop`, `0`,
-                        `-ss`, `00:00:00.0`,
-                        `-t`, `00:00:05.0`,
-                        `-preset`, `default`,
-                        `-an`,
-                        `-vsync`, `0`
-                    ])
-                    .toFormat('webp')
-                    .save(tempOutput);
+                    commandFfmpeg
+                        .toFormat('webp')
+                        .save(tempOutput);
                 });
 
-                // 4. Kirim Stiker (✅ FIX: Tambah JID)
+                // 4. Kirim Stiker
                 const stickerBuffer = await fs.readFile(tempOutput);
                 await chat.sendMessage(jid, { sticker: stickerBuffer }, { quoted: msg });
 
@@ -94,7 +104,8 @@ module.exports = async (command, args, msg, user, db, chat) => {
                 // Update Quest
                 const qNotif = addQuestProgress(user, "sticker");
                 if (qNotif) msg.reply(qNotif);
-                saveDB(db);
+                // Biarkan saveDB otomatis di index.js (biar ga berat)
+                // saveDB(db); 
 
             } else {
                 msg.reply("📸 Balas foto/video atau kirim foto dengan caption *!s*");
@@ -146,7 +157,7 @@ module.exports = async (command, args, msg, user, db, chat) => {
                         .save(tempOutput);
                 });
 
-                // 4. Kirim Gambar (✅ FIX: Tambah JID)
+                // 4. Kirim Gambar
                 const imgBuffer = await fs.readFile(tempOutput);
                 await chat.sendMessage(jid, { image: imgBuffer, caption: "🖼️ Ini gambarnya!" }, { quoted: msg });
 
@@ -170,7 +181,7 @@ module.exports = async (command, args, msg, user, db, chat) => {
         msg.reply("⏳ Sedang memproses audio...");
 
         try {
-            // API Wuk.sh (Public API - Bisa down sewaktu-waktu)
+            // API Wuk.sh
             const response = await axios.post("https://co.wuk.sh/api/json", {
                 url: url, aFormat: "mp3", isAudioOnly: true
             }, { 
@@ -178,7 +189,6 @@ module.exports = async (command, args, msg, user, db, chat) => {
             });
 
             if (response.data && response.data.url) {
-                // ✅ FIX: Tambah JID & Quoted
                 await chat.sendMessage(jid, { 
                     audio: { url: response.data.url }, 
                     mimetype: 'audio/mp4',
