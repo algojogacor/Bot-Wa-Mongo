@@ -69,7 +69,7 @@ module.exports = async (command, args, msg, user, db, chat) => {
                         // FPS 10, Durasi 5s, Scale 512
                         commandFfmpeg.addOutputOptions([
                             `-vcodec`, `libwebp`,
-                            `-vf`, `scale=512:512:force_original_aspect_ratio=decrease,fps=10`, 
+                            `-vf`, `scale=512:512:force_original_aspect_ratio=decrease,fps=10,pad=512:512:-1:-1:color=white@0.0,split[a][b];[a]palettegen=reserve_transparent=on:transparency_color=ffffff[p];[b][p]paletteuse`,
                             `-loop`, `0`,
                             `-ss`, `00:00:00.0`,
                             `-t`, `00:00:05.0`, // Potong max 5 detik
@@ -78,14 +78,14 @@ module.exports = async (command, args, msg, user, db, chat) => {
                             `-vsync`, `0`
                         ]);
                     } else {
-                        // SETTING KHUSUS GAMBAR (Tetap HD gapapa, karena ringan)
-                         commandFfmpeg.addOutputOptions([
-                            `-vcodec`, `libwebp`,
-                            `-vf`, `scale=512:512:force_original_aspect_ratio=decrease`,
-                            `-preset`, `default`,
-                            `-an`,
-                            `-vsync`, `0`
-                        ]);
+                        commandFfmpeg.addOutputOptions([
+    `-vcodec`, `libwebp`,
+    `-vf`, `scale=320:320:force_original_aspect_ratio=decrease,fps=10`, 
+    `-loop`, `0`,
+    `-preset`, `default`,
+    `-an`,
+    `-vsync`, `0`
+]);
                     }
 
                     commandFfmpeg
@@ -205,3 +205,4 @@ module.exports = async (command, args, msg, user, db, chat) => {
         }
     }
 };
+
